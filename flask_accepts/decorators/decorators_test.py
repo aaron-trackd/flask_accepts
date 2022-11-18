@@ -1,6 +1,8 @@
+from dataclasses import dataclass
 from flask import request
 from flask_restx import Resource, Api
 from marshmallow import Schema, fields
+from marshmallow_oneofschema import OneOfSchema
 from werkzeug.datastructures import MultiDict
 
 from flask_accepts.decorators import accepts, responds
@@ -965,6 +967,44 @@ def test_responds_with_validate(app, client):  # noqa
         assert resp.status_code == 500
         assert resp.json == {"message": "Server attempted to return invalid data"}
 
+def test_responds_with_oneofschema(app, client):
+    @dataclass
+    class A:
+        field_a: str
+
+    @dataclass
+    class B:
+        field_b: int
+
+
+    class SchemaA(Schema):
+        field_a = fields.String()
+    
+    class SchemaB(Schema):
+        field_b = fields.Integer()
+
+    class IsOneOfSchema(OneOfSchema):
+        type_schemas = {
+            "A": SchemaA,
+            "B": SchemaB
+        }
+
+    class ContainsOneOfSchema(Schema):
+        items = fields.List(fields.Nested(IsOneOfSchema))
+
+    api = Api(app)
+
+    @api.route("/test")
+    class TestResource(Resource):
+        @responds(schema=ContainsOneOfSchema, api=api)
+        def get(self):
+            return {"items": [A("val"), B(42)]}
+
+    with client as cl:
+        resp = cl.get("/test")
+        assert resp.status_code == 200
+        assert resp.json == {'items': [{'field_a': 'val', 'type': 'A'}, {'field_b': 42, 'type': 'B'}]}
+
 
 def test_multidict_single_values_interpreted_correctly(app, client):  # noqa
     class TestSchema(Schema):
@@ -1109,3 +1149,37 @@ def test_swagger_respects_existing_response_docs(app, client):  # noqa
         assert route_docs["responses"]["200"]["description"] == "My description"
         assert route_docs["responses"]["401"]["description"] == "Not Authorized"
         assert route_docs["responses"]["404"]["description"] == "Not Found"
+
+def test_swagger_handles_oneofschema(app, client):  # noqa
+    class SchemaA(Schema):
+        field_a = fields.String()
+    
+    class SchemaB(Schema):
+        field_b = fields.Integer()
+
+    class IsOneOfSchema(OneOfSchema):
+        type_schemas = {
+            "SchemaA": SchemaA,
+            "SchemaB": SchemaB
+        }
+
+    class ContainsOneOfSchema(Schema):
+        items = fields.List(fields.Nested(IsOneOfSchema))
+
+    app.config['RESTX_INCLUDE_ALL_MODELS'] = True
+    api = Api(app)
+    route = "/test"
+
+    @api.route(route)
+    class TestResource(Resource):
+        @responds(schema=ContainsOneOfSchema, api=api, description="My description")
+        def get(self):
+            return []
+
+    with client as cl:
+        cl.get(route)
+        definitions = api.__schema__["definitions"]
+        assert definitions["ContainsOneOf"] == {'properties': {'items': {'type': 'array', 'items': {'$ref': '#/definitions/IsOneOf'}}}, 'type': 'object'}
+        assert definitions["IsOneOf"] == {'type': 'object', 'oneOf': [{'$ref': '#/definitions/SchemaA'}, {'$ref': '#/definitions/SchemaB'}]}
+        assert definitions["SchemaA"] == {'properties': {'field_a': {'type': 'string'}}, 'type': 'object'}
+        assert definitions["SchemaB"] == {'properties': {'field_b': {'type': 'integer'}}, 'type': 'object'}

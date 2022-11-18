@@ -1,10 +1,10 @@
 from typing import Optional, Type, Union
 
 from flask_restx import fields as fr, inputs
+from flask_restx.swagger import ref
 from marshmallow import fields as ma
 from marshmallow import __version_info__ as marshmallow_version
 from marshmallow.schema import Schema, SchemaMeta
-import uuid
 
 
 _ma_key_for_fr_example_key = "dump_default"
@@ -57,7 +57,6 @@ def unpack_nested_self(val, api, model_name: str = None, operation: str = "dump"
             api.model(f"{model_name}-child", fields), **_ma_field_to_fr_field(val)
         )
 
-
 def for_swagger(schema, api, model_name: str = None, operation: str = "dump"):
     """
     Convert a marshmallow schema to equivalent Flask-restx model
@@ -84,6 +83,20 @@ def for_swagger(schema, api, model_name: str = None, operation: str = "dump"):
     }
 
     model_name = _maybe_add_operation(schema, model_name, operation)
+
+     # Handling for OneOfSchema
+    if len(fields) == 0 and hasattr(schema, "type_schemas"):
+        schemas_refs = []
+        for k,v in schema.type_schemas.items():
+            restx_model = for_swagger(v, api, k)
+            schemas_refs.append(ref(restx_model))
+            api.model(k, restx_model)
+
+        return api.schema_model(model_name, {
+            "type" : "object",
+            "oneOf" : schemas_refs
+        })
+
     return api.model(model_name, fields)
 
 
