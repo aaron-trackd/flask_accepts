@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from flask import request
 from flask_restx import Resource, Api
 from marshmallow import Schema, fields
@@ -1005,6 +1006,58 @@ def test_responds_with_oneofschema(app, client):  # noqa
         resp = cl.get("/test")
         assert resp.status_code == 200
         assert resp.json == {'items': [{'field_a': 'val', 'type': 'A'}, {'field_b': 42, 'type': 'B'}]}
+
+
+def test_responds_with_enum_with_description(app, client):  # noqa
+    class MyEnum(Enum):
+        KEY_1 = "val1"
+        KEY_2 = "val2"
+
+    class EnumSchema(Schema):
+        enum_field = fields.String(metadata={"enum": MyEnum})
+
+    api = Api(app)
+
+    @api.route("/test")
+    class TestResource(Resource):
+        @responds(schema=EnumSchema, api=api)
+        def get(self):
+            return {"enum_field": "val1"}
+
+    with client as cl:
+        resp = cl.get("/test")
+        assert resp.status_code == 200
+        assert resp.json == {"enum_field": "val1"}
+
+        definitions = api.__schema__["definitions"]
+
+        assert definitions["Enum"]["properties"]["enum_field"]["description"] == 'export enum MyEnum {\n    KEY_1 = "val1",\n    KEY_2 = "val2",\n}'
+
+
+def test_responds_with_enum_description_appends(app, client):  # noqa
+    class MyEnum(Enum):
+        KEY_1 = "val1"
+        KEY_2 = "val2"
+
+    class EnumSchema(Schema):
+        enum_field = fields.String(metadata={"description":"Some Description", "enum": MyEnum})
+
+    api = Api(app)
+
+    @api.route("/test")
+    class TestResource(Resource):
+        @responds(schema=EnumSchema, api=api)
+        def get(self):
+            return {"enum_field": "val1"}
+
+    with client as cl:
+        resp = cl.get("/test")
+        assert resp.status_code == 200
+        assert resp.json == {"enum_field": "val1"}
+
+        definitions = api.__schema__["definitions"]
+
+        assert definitions["Enum"]["properties"]["enum_field"]["description"] == 'Some Description\n\nexport enum MyEnum {\n    KEY_1 = "val1",\n    KEY_2 = "val2",\n}'
 
 
 def test_responds_with_enum(app, client):  # noqa

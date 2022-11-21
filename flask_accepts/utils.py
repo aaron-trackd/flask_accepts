@@ -1,3 +1,5 @@
+from enum import Enum
+import inspect
 from typing import Optional, Type, Union
 
 from flask_restx import fields as fr, inputs
@@ -84,7 +86,7 @@ def for_swagger(schema, api, model_name: str = None, operation: str = "dump"):
 
     model_name = _maybe_add_operation(schema, model_name, operation)
 
-     # Handling for OneOfSchema
+    # Handling for OneOfSchema
     if len(fields) == 0 and hasattr(schema, "type_schemas"):
         schemas_refs = []
         for k,v in schema.type_schemas.items():
@@ -201,7 +203,23 @@ def _ma_field_to_fr_field(value: ma.Field) -> dict:
         fr_field_parameters["description"] = value.metadata["description"]
 
     if hasattr(value, "metadata") and "enum" in value.metadata:
-        fr_field_parameters["enum"] = value.metadata["enum"]
+        # If we have an actual Enum we should include it in description.
+        if inspect.isclass(value.metadata["enum"]) and issubclass(value.metadata["enum"], Enum):
+            enum = value.metadata["enum"]
+            fr_field_parameters["enum"] = list(map(lambda c: c.value, enum))
+            if "description" in fr_field_parameters:
+                fr_field_parameters["description"] += "\n\n"
+            else:
+                fr_field_parameters["description"] = ""
+            fr_field_parameters["description"] += f"export enum {enum.__name__} {{\n"
+
+            for entry in enum:
+                fr_field_parameters["description"] += f"    {entry.name} = \"{entry.value}\",\n"
+            fr_field_parameters["description"] += "}"
+
+        # Otherwise just having the swagger enum set is fine.
+        elif isinstance(value.metadata["enum"], list):
+            fr_field_parameters["enum"] = value.metadata["enum"]
 
     if hasattr(value, _ma_key_for_fr_default_key) \
             and type(getattr(value, _ma_key_for_fr_default_key)) != ma.utils._Missing:
