@@ -967,7 +967,8 @@ def test_responds_with_validate(app, client):  # noqa
         assert resp.status_code == 500
         assert resp.json == {"message": "Server attempted to return invalid data"}
 
-def test_responds_with_oneofschema(app, client):
+
+def test_responds_with_oneofschema(app, client):  # noqa
     @dataclass
     class A:
         field_a: str
@@ -1004,6 +1005,28 @@ def test_responds_with_oneofschema(app, client):
         resp = cl.get("/test")
         assert resp.status_code == 200
         assert resp.json == {'items': [{'field_a': 'val', 'type': 'A'}, {'field_b': 42, 'type': 'B'}]}
+
+
+def test_responds_with_enum(app, client):  # noqa
+    class EnumSchema(Schema):
+        enum_field = fields.String(metadata={"enum": ["val1", "val2"]})
+
+    api = Api(app)
+
+    @api.route("/test")
+    class TestResource(Resource):
+        @responds(schema=EnumSchema, api=api)
+        def get(self):
+            return {"enum_field": "val1"}
+
+    with client as cl:
+        resp = cl.get("/test")
+        assert resp.status_code == 200
+        assert resp.json == {"enum_field": "val1"}
+
+        definitions = api.__schema__["definitions"]
+
+        assert definitions["Enum"] == {'properties': {'enum_field': {'type': 'string', 'example': 'val1', 'enum': ['val1', 'val2']}}, 'type': 'object'}
 
 
 def test_multidict_single_values_interpreted_correctly(app, client):  # noqa

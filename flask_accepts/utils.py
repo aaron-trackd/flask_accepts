@@ -200,6 +200,9 @@ def _ma_field_to_fr_field(value: ma.Field) -> dict:
     if hasattr(value, "metadata") and "description" in value.metadata:
         fr_field_parameters["description"] = value.metadata["description"]
 
+    if hasattr(value, "metadata") and "enum" in value.metadata:
+        fr_field_parameters["enum"] = value.metadata["enum"]
+
     if hasattr(value, _ma_key_for_fr_default_key) \
             and type(getattr(value, _ma_key_for_fr_default_key)) != ma.utils._Missing:
         fr_field_parameters["default"] = getattr(value, _ma_key_for_fr_default_key)
