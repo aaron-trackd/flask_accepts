@@ -118,13 +118,27 @@ def _check_load_dump_only(field: ma.Field, operation: str) -> bool:
             f"Invalid operation: {operation}. Options are 'load' and 'dump'."
         )
 
+def nullable(fld):
+    """Makes any field nullable."""
+
+    class NullableField(fld):
+        """Nullable wrapper."""
+
+        __schema_type__ = [fld.__schema_type__, "null"]
+        __schema_example__ = f"nullable {fld.__schema_type__}"
+
+    return NullableField
 
 def make_type_mapper(field_type):
     """Factory for creating mapping functions for `type_map` with additional
     marshmallow fields, if present"""
 
     def mapper(val, api, model_name, operation):
-        return field_type(**_ma_field_to_fr_field(val))
+        converted_field = _ma_field_to_fr_field(val)
+        maybe_nullable_field_type = field_type
+        if "allow_null" in converted_field and converted_field["allow_null"]:
+            maybe_nullable_field_type = nullable(field_type)
+        return maybe_nullable_field_type(**converted_field)
 
     return mapper
 
@@ -206,20 +220,35 @@ def _ma_field_to_fr_field(value: ma.Field) -> dict:
         # If we have an actual Enum we should include it in description.
         if inspect.isclass(value.metadata["enum"]) and issubclass(value.metadata["enum"], Enum):
             enum = value.metadata["enum"]
-            fr_field_parameters["enum"] = list(map(lambda c: c.value, enum))
+
+            # Enums can have a string method that is optionally returned instead
+            if "enum_return_str" in value.metadata and value.metadata["enum_return_str"]:
+                fr_field_parameters["enum"] = list(map(lambda c: str(c), enum))
+            else:
+                fr_field_parameters["enum"] = list(map(lambda c: c.value, enum))
+
             if "description" in fr_field_parameters:
                 fr_field_parameters["description"] += "\n\n"
             else:
                 fr_field_parameters["description"] = ""
             fr_field_parameters["description"] += f"export enum {enum.__name__} {{\n"
 
-            for entry in enum:
-                fr_field_parameters["description"] += f"    {entry.name} = \"{entry.value}\",\n"
+            # Enums can have a string method that is optionally returned instead
+            if "enum_return_str" in value.metadata and value.metadata["enum_return_str"]:
+                for entry in enum:
+                    fr_field_parameters["description"] += f"    {entry.name} = \"{str(entry)}\",\n"
+            else:
+                for entry in enum:
+                    fr_field_parameters["description"] += f"    {entry.name} = \"{entry.value}\",\n"
             fr_field_parameters["description"] += "}"
 
         # Otherwise just having the swagger enum set is fine.
         elif isinstance(value.metadata["enum"], list):
             fr_field_parameters["enum"] = value.metadata["enum"]
+
+    # Support for nullable fields
+    if hasattr(value, "metadata") and "allow_null" in value.metadata:
+        fr_field_parameters["allow_null"] = value.metadata["allow_null"]
 
     if hasattr(value, _ma_key_for_fr_default_key) \
             and type(getattr(value, _ma_key_for_fr_default_key)) != ma.utils._Missing:

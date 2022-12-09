@@ -434,6 +434,17 @@ def test_map_type_dump_ma_method_returns_fr_raw():
     assert isinstance(map_result['method_field'], expected_method_field_mapping)
 
 
+def test_map_type_returns_nullable():
+    class TestSchema(Schema):
+        null = ma.String(metadata={"allow_null": True})
+
+    TestApi = Api()
+
+    map_result = utils.map_type(TestSchema, TestApi, 'TestSchema', 'dump')
+
+    assert map_result['null'].__schema_type__ == ['string', 'null']
+
+
 def _get_type_mapper_default_params():
     return "test-model", "test-operation", namespace.Namespace("test-ns")
 

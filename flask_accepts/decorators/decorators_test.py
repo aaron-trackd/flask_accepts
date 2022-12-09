@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from aenum import OrderedEnum, MultiValueEnum
 from flask import request
 from flask_restx import Resource, Api
 from marshmallow import Schema, fields
@@ -563,6 +564,30 @@ def test_accept_schema_instance_respects_many(app, client):  # noqa
         assert obj == [{"_id": 42, "name": "Jon Snow"}]
 
 
+def test_accepts_with_nullable_fields(app, client):  # noqa
+    class TestSchema(Schema):
+        foo = fields.String()
+        bar_nullable = fields.String(allow_none=True, metadata={"allow_null": True})
+
+    api = Api(app)
+
+    @api.route("/test")
+    class TestResource(Resource):
+        @accepts("TestSchema", schema=TestSchema, api=api)
+        def post(self):
+            return "success"
+
+    with client as cl:
+        resp = cl.post("/test", data='{"foo": "foostring", "bar_nullable": "barstring"}', content_type='application/json')
+        assert resp.status_code == 200
+
+        resp = cl.post("/test", data='{"foo": "foostring", "bar_nullable": null}', content_type='application/json')
+        assert resp.status_code == 200
+
+        schema_def = api.__schema__["definitions"]["TestSchema"]
+        assert schema_def["properties"]["bar_nullable"]["type"] == ['string', 'null']
+
+
 def test_responds(app, client):  # noqa
     class TestSchema(Schema):
         _id = fields.Integer()
@@ -1041,6 +1066,34 @@ def test_responds_with_enum_description_appends(app, client):  # noqa
 
     class EnumSchema(Schema):
         enum_field = fields.String(metadata={"description":"Some Description", "enum": MyEnum})
+
+    api = Api(app)
+
+    @api.route("/test")
+    class TestResource(Resource):
+        @responds(schema=EnumSchema, api=api)
+        def get(self):
+            return {"enum_field": "val1"}
+
+    with client as cl:
+        resp = cl.get("/test")
+        assert resp.status_code == 200
+        assert resp.json == {"enum_field": "val1"}
+
+        definitions = api.__schema__["definitions"]
+
+        assert definitions["Enum"]["properties"]["enum_field"]["description"] == 'Some Description\n\nexport enum MyEnum {\n    KEY_1 = "val1",\n    KEY_2 = "val2",\n}'
+
+def test_responds_with_enum_return_str(app, client):  # noqa
+    class MyEnum(OrderedEnum, MultiValueEnum):
+        KEY_1 = 0, "val1"
+        KEY_2 = 1, "val2"
+
+        def __str__(self):
+            return self.values[1]
+
+    class EnumSchema(Schema):
+        enum_field = fields.String(metadata={"description":"Some Description", "enum": MyEnum, "enum_return_str": True})
 
     api = Api(app)
 
