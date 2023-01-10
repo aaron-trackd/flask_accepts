@@ -59,6 +59,12 @@ def unpack_nested_self(val, api, model_name: str = None, operation: str = "dump"
             api.model(f"{model_name}-child", fields), **_ma_field_to_fr_field(val)
         )
 
+def unpack_dict(val, api, model_name: str = None, operation: str = "dump"):
+    model_name = model_name or get_default_model_name()
+    return fr.Wildcard(
+        map_type(val.value_field, api, model_name, operation), **_ma_field_to_fr_field(val)
+    )
+
 def for_swagger(schema, api, model_name: str = None, operation: str = "dump"):
     """
     Convert a marshmallow schema to equivalent Flask-restx model
@@ -181,6 +187,7 @@ type_map.update(
     {
         ma.List: unpack_list,
         ma.Nested: unpack_nested,
+        ma.Dict: unpack_dict,
         Schema: for_swagger,
         SchemaMeta: for_swagger,
     }

@@ -95,6 +95,22 @@ def test_unpack_nested_self_many():
     assert type(result) == fr.List
 
 
+def test_unpack_dict():
+    class TestSchema(Schema):
+        _id = ma.Integer()
+        name = ma.String()
+
+    app = Flask(__name__)
+    api = Api(app)
+    with patch("flask_accepts.utils.unpack_dict", wraps=utils.unpack_dict) as mock:
+        result = utils.unpack_dict(ma.Dict(
+            keys=ma.String(), values=ma.List(ma.Nested(TestSchema))
+        ), api=api)
+
+        assert isinstance(result, fr.Wildcard)
+        assert mock.call_count == 1
+
+
 def test_get_default_model_name():
     from .utils import get_default_model_name
 

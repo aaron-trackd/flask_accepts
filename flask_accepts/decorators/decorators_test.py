@@ -486,7 +486,7 @@ def test_failure_when_form_schema_arg_is_missing(app, client):  # noqa
     class TestResource(Resource):
         @accepts("TestSchema", form_schema=TestSchema, api=api)
         def post(self):
-                pass  # pragma: no cover
+            pass  # pragma: no cover
 
     with client as cl:
         resp = cl.post("/test")
@@ -510,7 +510,9 @@ def test_failure_when_form_schema_arg_is_wrong_type(app, client):  # noqa
         assert resp.status_code == 400
 
 
-def test_accepts_with_postional_args_query_params_schema_and_header_schema_and_form_schema(app, client):  # noqa
+def test_accepts_with_postional_args_query_params_schema_and_header_schema_and_form_schema(
+    app, client
+):  # noqa
     class QueryParamsSchema(Schema):
         query_param = fields.List(fields.String(), required=True)
 
@@ -529,7 +531,8 @@ def test_accepts_with_postional_args_query_params_schema_and_header_schema_and_f
             query_params_schema=QueryParamsSchema,
             headers_schema=HeadersSchema,
             form_schema=FormSchema,
-            api=api)
+            api=api,
+        )
         def post(self):
             assert request.parsed_args["foo"] == 3
             assert request.parsed_query_params["query_param"] == ["baz", "qux"]
@@ -541,7 +544,8 @@ def test_accepts_with_postional_args_query_params_schema_and_header_schema_and_f
         resp = cl.post(
             "/test?foo=3&query_param=baz&query_param=qux",
             headers={"Header": "3"},
-            data={"form": "value"})
+            data={"form": "value"},
+        )
         assert resp.status_code == 200
 
 
@@ -559,7 +563,11 @@ def test_accept_schema_instance_respects_many(app, client):  # noqa
             return request.parsed_obj
 
     with client as cl:
-        resp = cl.post("/test", data='[{"_id": 42, "name": "Jon Snow"}]', content_type='application/json')
+        resp = cl.post(
+            "/test",
+            data='[{"_id": 42, "name": "Jon Snow"}]',
+            content_type="application/json",
+        )
         obj = resp.json
         assert obj == [{"_id": 42, "name": "Jon Snow"}]
 
@@ -578,14 +586,22 @@ def test_accepts_with_nullable_fields(app, client):  # noqa
             return "success"
 
     with client as cl:
-        resp = cl.post("/test", data='{"foo": "foostring", "bar_nullable": "barstring"}', content_type='application/json')
+        resp = cl.post(
+            "/test",
+            data='{"foo": "foostring", "bar_nullable": "barstring"}',
+            content_type="application/json",
+        )
         assert resp.status_code == 200
 
-        resp = cl.post("/test", data='{"foo": "foostring", "bar_nullable": null}', content_type='application/json')
+        resp = cl.post(
+            "/test",
+            data='{"foo": "foostring", "bar_nullable": null}',
+            content_type="application/json",
+        )
         assert resp.status_code == 200
 
         schema_def = api.__schema__["definitions"]["TestSchema"]
-        assert schema_def["properties"]["bar_nullable"]["type"] == ['string', 'null']
+        assert schema_def["properties"]["bar_nullable"]["type"] == ["string", "null"]
 
 
 def test_responds(app, client):  # noqa
@@ -798,7 +814,7 @@ def test_responds_respects_envelope(app, client):  # noqa
 
     @api.route("/test")
     class TestResource(Resource):
-        @responds(schema=TestSchema, api=api, envelope='test-data')
+        @responds(schema=TestSchema, api=api, envelope="test-data")
         def get(self):
             from flask import make_response, Response
 
@@ -808,7 +824,7 @@ def test_responds_respects_envelope(app, client):  # noqa
     with client as cl:
         resp = cl.get("/test")
         assert resp.status_code == 200
-        assert resp.json == {'test-data': {'_id': 42, 'name': 'Jon Snow'}}
+        assert resp.json == {"test-data": {"_id": 42, "name": "Jon Snow"}}
 
 
 def test_responds_skips_none_false(app, client):
@@ -827,7 +843,7 @@ def test_responds_skips_none_false(app, client):
     with client as cl:
         resp = cl.get("/test")
         assert resp.status_code == 200
-        assert resp.json == {'_id': 42, 'name': None}
+        assert resp.json == {"_id": 42, "name": None}
 
 
 def test_responds_with_nested_skips_none_true(app, client):
@@ -850,7 +866,7 @@ def test_responds_with_nested_skips_none_true(app, client):
     with client as cl:
         resp = cl.get("/test")
         assert resp.status_code == 200
-        assert resp.json == [{"child": {'_id': 42}}]
+        assert resp.json == [{"child": {"_id": 42}}]
 
 
 def test_accepts_with_nested_schema(app, client):  # noqa
@@ -1003,18 +1019,14 @@ def test_responds_with_oneofschema(app, client):  # noqa
     class B:
         field_b: int
 
-
     class SchemaA(Schema):
         field_a = fields.String()
-    
+
     class SchemaB(Schema):
         field_b = fields.Integer()
 
     class IsOneOfSchema(OneOfSchema):
-        type_schemas = {
-            "A": SchemaA,
-            "B": SchemaB
-        }
+        type_schemas = {"A": SchemaA, "B": SchemaB}
 
     class ContainsOneOfSchema(Schema):
         items = fields.List(fields.Nested(IsOneOfSchema))
@@ -1030,7 +1042,9 @@ def test_responds_with_oneofschema(app, client):  # noqa
     with client as cl:
         resp = cl.get("/test")
         assert resp.status_code == 200
-        assert resp.json == {'items': [{'field_a': 'val', 'type': 'A'}, {'field_b': 42, 'type': 'B'}]}
+        assert resp.json == {
+            "items": [{"field_a": "val", "type": "A"}, {"field_b": 42, "type": "B"}]
+        }
 
 
 def test_responds_with_enum_with_description(app, client):  # noqa
@@ -1056,7 +1070,10 @@ def test_responds_with_enum_with_description(app, client):  # noqa
 
         definitions = api.__schema__["definitions"]
 
-        assert definitions["Enum"]["properties"]["enum_field"]["description"] == 'export enum MyEnum {\n    KEY_1 = "val1",\n    KEY_2 = "val2",\n}'
+        assert (
+            definitions["Enum"]["properties"]["enum_field"]["description"]
+            == 'export enum MyEnum {\n    KEY_1 = "val1",\n    KEY_2 = "val2",\n}'
+        )
 
 
 def test_responds_with_enum_description_appends(app, client):  # noqa
@@ -1065,7 +1082,9 @@ def test_responds_with_enum_description_appends(app, client):  # noqa
         KEY_2 = "val2"
 
     class EnumSchema(Schema):
-        enum_field = fields.String(metadata={"description":"Some Description", "enum": MyEnum})
+        enum_field = fields.String(
+            metadata={"description": "Some Description", "enum": MyEnum}
+        )
 
     api = Api(app)
 
@@ -1082,7 +1101,11 @@ def test_responds_with_enum_description_appends(app, client):  # noqa
 
         definitions = api.__schema__["definitions"]
 
-        assert definitions["Enum"]["properties"]["enum_field"]["description"] == 'Some Description\n\nexport enum MyEnum {\n    KEY_1 = "val1",\n    KEY_2 = "val2",\n}'
+        assert (
+            definitions["Enum"]["properties"]["enum_field"]["description"]
+            == 'Some Description\n\nexport enum MyEnum {\n    KEY_1 = "val1",\n    KEY_2 = "val2",\n}'
+        )
+
 
 def test_responds_with_enum_return_str(app, client):  # noqa
     class MyEnum(OrderedEnum, MultiValueEnum):
@@ -1093,7 +1116,13 @@ def test_responds_with_enum_return_str(app, client):  # noqa
             return self.values[1]
 
     class EnumSchema(Schema):
-        enum_field = fields.String(metadata={"description":"Some Description", "enum": MyEnum, "enum_return_str": True})
+        enum_field = fields.String(
+            metadata={
+                "description": "Some Description",
+                "enum": MyEnum,
+                "enum_return_str": True,
+            }
+        )
 
     api = Api(app)
 
@@ -1110,7 +1139,10 @@ def test_responds_with_enum_return_str(app, client):  # noqa
 
         definitions = api.__schema__["definitions"]
 
-        assert definitions["Enum"]["properties"]["enum_field"]["description"] == 'Some Description\n\nexport enum MyEnum {\n    KEY_1 = "val1",\n    KEY_2 = "val2",\n}'
+        assert (
+            definitions["Enum"]["properties"]["enum_field"]["description"]
+            == 'Some Description\n\nexport enum MyEnum {\n    KEY_1 = "val1",\n    KEY_2 = "val2",\n}'
+        )
 
 
 def test_responds_with_enum(app, client):  # noqa
@@ -1132,7 +1164,66 @@ def test_responds_with_enum(app, client):  # noqa
 
         definitions = api.__schema__["definitions"]
 
-        assert definitions["Enum"] == {'properties': {'enum_field': {'type': 'string', 'example': 'val1', 'enum': ['val1', 'val2']}}, 'type': 'object'}
+        assert definitions["Enum"] == {
+            "properties": {
+                "enum_field": {
+                    "type": "string",
+                    "example": "val1",
+                    "enum": ["val1", "val2"],
+                }
+            },
+            "type": "object",
+        }
+
+
+def test_responds_with_dict(app, client):  # noqa
+    class TestSchema(Schema):
+        _id = fields.Integer()
+        name = fields.String()
+
+    class DictSchema(Schema):
+        dict_field = fields.Dict(
+            keys=fields.String(), values=fields.List(fields.Nested(TestSchema))
+        )
+
+    api = Api(app)
+
+    @api.route("/test")
+    class TestResource(Resource):
+        @responds(schema=DictSchema, api=api)
+        def get(self):
+            return {
+                "dict_field": {
+                    "key1": [{"_id": 1, "name": "name1"}, {"_id": 2, "name": "name2"}],
+                    "keyA": [{"_id": 3, "name": "nameA"}, {"_id": 4, "name": "nameB"}],
+                }
+            }
+
+    with client as cl:
+        resp = cl.get("/test")
+        assert resp.status_code == 200
+        assert resp.json == {
+            "dict_field": {
+                "key1": [{"_id": 1, "name": "name1"}, {"_id": 2, "name": "name2"}],
+                "keyA": [{"_id": 3, "name": "nameA"}, {"_id": 4, "name": "nameB"}],
+            }
+        }
+
+        definitions = api.__schema__["definitions"]
+
+        assert definitions["Dict"] == {
+            "properties": {
+                "dict_field": {
+                    "additionalProperties": {
+                        "items": {"$ref": "#/definitions/Test"},
+                        "type": "array",
+                    },
+                    "type": "object",
+                },
+            },
+            "type": "object",
+        }
+        assert definitions["Test"] == {'properties': {'_id': {'type': 'integer'}, 'name': {'type': 'string'}}, 'type': 'object'}
 
 
 def test_multidict_single_values_interpreted_correctly(app, client):  # noqa
@@ -1151,10 +1242,12 @@ def test_multidict_single_values_interpreted_correctly(app, client):  # noqa
 
     # Also makes sure that if multiple values are found in the multidict, then
     # only the first one is returned.
-    multidict = MultiDict([
-        ("name", "value"),
-        ("name", "value2"),
-    ])
+    multidict = MultiDict(
+        [
+            ("name", "value"),
+            ("name", "value2"),
+        ]
+    )
     result = _convert_multidict_values_to_schema(multidict, TestSchema())
     assert result["name"] == "value"
 
@@ -1163,10 +1256,7 @@ def test_multidict_list_values_interpreted_correctly(app, client):  # noqa
     class TestSchema(Schema):
         name = fields.List(fields.String(), required=True)
 
-    multidict = MultiDict([
-        ("name", "value"),
-        ("new_value", "still_here")
-    ])
+    multidict = MultiDict([("name", "value"), ("new_value", "still_here")])
     result = _convert_multidict_values_to_schema(multidict, TestSchema())
 
     # `name` should be converted to a list.
@@ -1176,10 +1266,12 @@ def test_multidict_list_values_interpreted_correctly(app, client):  # noqa
     assert result["new_value"] == "still_here"
 
     # Also makes sure handling a list with >1 values also works.
-    multidict = MultiDict([
-        ("name", "value"),
-        ("name", "value2"),
-    ])
+    multidict = MultiDict(
+        [
+            ("name", "value"),
+            ("name", "value2"),
+        ]
+    )
     result = _convert_multidict_values_to_schema(multidict, TestSchema())
     assert result["name"] == ["value", "value2"]
 
@@ -1200,12 +1292,16 @@ def test_no_schema_generates_correct_swagger(app, client):  # noqa
             return obj
 
     with client as cl:
-        cl.post(route, data='[{"_id": 42, "name": "Jon Snow"}]', content_type='application/json')
+        cl.post(
+            route,
+            data='[{"_id": 42, "name": "Jon Snow"}]',
+            content_type="application/json",
+        )
         route_docs = api.__schema__["paths"][route]["post"]
 
-        responses_docs = route_docs['responses']['201']
+        responses_docs = route_docs["responses"]["201"]
 
-        assert responses_docs['description'] == "My description"
+        assert responses_docs["description"] == "My description"
 
 
 def test_schema_generates_correct_swagger(app, client):  # noqa
@@ -1219,19 +1315,30 @@ def test_schema_generates_correct_swagger(app, client):  # noqa
     @api.route(route)
     class TestResource(Resource):
         @accepts(model_name="MyRequest", schema=TestSchema(many=False), api=api)
-        @responds(model_name="MyResponse", schema=TestSchema(many=False), api=api, description="My description")
+        @responds(
+            model_name="MyResponse",
+            schema=TestSchema(many=False),
+            api=api,
+            description="My description",
+        )
         def post(self):
             obj = {"_id": 42, "name": "Jon Snow"}
             return obj
 
     with client as cl:
-        cl.post(route, data='{"_id": 42, "name": "Jon Snow"}', content_type='application/json')
+        cl.post(
+            route,
+            data='{"_id": 42, "name": "Jon Snow"}',
+            content_type="application/json",
+        )
         route_docs = api.__schema__["paths"][route]["post"]
-        responses_docs = route_docs['responses']['200']
+        responses_docs = route_docs["responses"]["200"]
 
-        assert responses_docs['description'] == "My description"
-        assert responses_docs['schema'] == {'$ref': '#/definitions/MyResponse'}
-        assert route_docs['parameters'][0]['schema'] == {'$ref': '#/definitions/MyRequest'}
+        assert responses_docs["description"] == "My description"
+        assert responses_docs["schema"] == {"$ref": "#/definitions/MyResponse"}
+        assert route_docs["parameters"][0]["schema"] == {
+            "$ref": "#/definitions/MyRequest"
+        }
 
 
 def test_schema_generates_correct_swagger_for_many(app, client):  # noqa
@@ -1251,10 +1358,20 @@ def test_schema_generates_correct_swagger_for_many(app, client):  # noqa
             return obj
 
     with client as cl:
-        resp = cl.post(route, data='[{"_id": 42, "name": "Jon Snow"}]', content_type='application/json')
+        resp = cl.post(
+            route,
+            data='[{"_id": 42, "name": "Jon Snow"}]',
+            content_type="application/json",
+        )
         route_docs = api.__schema__["paths"][route]["post"]
-        assert route_docs['responses']['200']['schema'] == {"type": "array", "items": {"$ref": "#/definitions/Test"}}
-        assert route_docs['parameters'][0]['schema'] == {"type": "array", "items": {"$ref": "#/definitions/Test"}}
+        assert route_docs["responses"]["200"]["schema"] == {
+            "type": "array",
+            "items": {"$ref": "#/definitions/Test"},
+        }
+        assert route_docs["parameters"][0]["schema"] == {
+            "type": "array",
+            "items": {"$ref": "#/definitions/Test"},
+        }
 
 
 def test_swagger_respects_existing_response_docs(app, client):  # noqa
@@ -1279,23 +1396,21 @@ def test_swagger_respects_existing_response_docs(app, client):  # noqa
         assert route_docs["responses"]["401"]["description"] == "Not Authorized"
         assert route_docs["responses"]["404"]["description"] == "Not Found"
 
+
 def test_swagger_handles_oneofschema(app, client):  # noqa
     class SchemaA(Schema):
         field_a = fields.String()
-    
+
     class SchemaB(Schema):
         field_b = fields.Integer()
 
     class IsOneOfSchema(OneOfSchema):
-        type_schemas = {
-            "SchemaA": SchemaA,
-            "SchemaB": SchemaB
-        }
+        type_schemas = {"SchemaA": SchemaA, "SchemaB": SchemaB}
 
     class ContainsOneOfSchema(Schema):
         items = fields.List(fields.Nested(IsOneOfSchema))
 
-    app.config['RESTX_INCLUDE_ALL_MODELS'] = True
+    app.config["RESTX_INCLUDE_ALL_MODELS"] = True
     api = Api(app)
     route = "/test"
 
@@ -1308,7 +1423,24 @@ def test_swagger_handles_oneofschema(app, client):  # noqa
     with client as cl:
         cl.get(route)
         definitions = api.__schema__["definitions"]
-        assert definitions["ContainsOneOf"] == {'properties': {'items': {'type': 'array', 'items': {'$ref': '#/definitions/IsOneOf'}}}, 'type': 'object'}
-        assert definitions["IsOneOf"] == {'type': 'object', 'oneOf': [{'$ref': '#/definitions/SchemaA'}, {'$ref': '#/definitions/SchemaB'}]}
-        assert definitions["SchemaA"] == {'properties': {'field_a': {'type': 'string'}}, 'type': 'object'}
-        assert definitions["SchemaB"] == {'properties': {'field_b': {'type': 'integer'}}, 'type': 'object'}
+        assert definitions["ContainsOneOf"] == {
+            "properties": {
+                "items": {"type": "array", "items": {"$ref": "#/definitions/IsOneOf"}}
+            },
+            "type": "object",
+        }
+        assert definitions["IsOneOf"] == {
+            "type": "object",
+            "oneOf": [
+                {"$ref": "#/definitions/SchemaA"},
+                {"$ref": "#/definitions/SchemaB"},
+            ],
+        }
+        assert definitions["SchemaA"] == {
+            "properties": {"field_a": {"type": "string"}},
+            "type": "object",
+        }
+        assert definitions["SchemaB"] == {
+            "properties": {"field_b": {"type": "integer"}},
+            "type": "object",
+        }
