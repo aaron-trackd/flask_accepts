@@ -8,7 +8,7 @@ from marshmallow import fields as ma
 from marshmallow import __version_info__ as marshmallow_version
 from marshmallow.schema import Schema, SchemaMeta
 
-
+# fmt: off
 _ma_key_for_fr_example_key = "dump_default"
 _ma_key_for_fr_default_key = "load_default"
 if marshmallow_version < (3, 13, 0):
@@ -174,6 +174,7 @@ type_map = {
     ma.Str: fr.String,
     ma.String: fr.String,
     ma.Time: fr.DateTime,
+    ma.TimeDelta: fr.Integer,
     ma.Url: fr.Url,
     ma.URL: fr.Url,
     ma.UUID: fr.String,
@@ -281,7 +282,8 @@ type_map_ma_to_reqparse = {
     ma.Boolean: inputs.boolean,
     ma.Int: int,
     ma.Integer: int,
-    ma.Float: float
+    ma.Float: float,
+    ma.TimeDelta: int,
 }
 
 

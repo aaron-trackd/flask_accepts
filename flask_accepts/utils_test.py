@@ -11,7 +11,7 @@ from flask_restx import Api, fields as fr, namespace
 # from .utils import unpack_list, unpack_nested
 import flask_accepts.utils as utils
 
-
+# fmt: off
 def test_unpack_list():
     app = Flask(__name__)
     api = Api(app)
@@ -492,3 +492,28 @@ def test_ma_field_to_reqparse_argument_list_values():
     assert result["required"] is False
     assert result["action"] == "append"
     assert result["help"] == "A description"
+
+def test_ma_field_timedelta_to_reqparse_argument_as_integer():
+    result = utils.ma_field_to_reqparse_argument(ma.TimeDelta(precision="seconds"))
+    assert result["type"] is int
+    assert result["required"] is False
+    assert result["action"] == "store"
+    assert "help" not in result
+
+
+def test_ma_field_timedelta_to_swagger():
+    app = Flask(__name__)
+    api = Api(
+        app,
+        version="1.0",
+        title="Sample API",
+        description="A sample API",
+    )
+
+    class TimeDeltaIntSchema(Schema):
+        duration_in_sec = ma.TimeDelta()
+
+    test_schema = TimeDeltaIntSchema
+    swagger_model = utils.for_swagger(schema=test_schema, api=api, operation="load")
+    assert swagger_model["duration_in_sec"] is not None
+    assert type(swagger_model["duration_in_sec"]) is fr.Integer
